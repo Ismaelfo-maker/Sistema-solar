@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sistema Solar · Físicas e Interacciones</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+      background-color: black;
+      color: white;
+      user-select: none;
+      touch-action: none;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0,0,0,0.7);
+      padding: 8px 16px;
+      border-radius: 30px;
+      font-size: 14px;
+      backdrop-filter: blur(4px);
+      pointer-events: none;
+      z-index: 10;
+    }
+    #controls {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(20,20,30,0.9);
+      backdrop-filter: blur(8px);
+      padding: 12px 16px 20px;
+      border-radius: 24px 24px 0 0;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 20;
+      max-height: 45vh;
+      overflow-y: auto;
+      transition: transform 0.2s ease;
+      border-top: 1px solid #444;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px 20px;
+    }
+    .slider-container {
+      flex: 1 1 150px;
+      min-width: 120px;
+    }
+    .slider-container label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #aaa;
+      margin-bottom: 2px;
+    }
+    .slider-container input {
+      width: 100%;
+      margin: 0;
+      background: #333;
+      border-radius: 10px;
+      height: 6px;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #ffaa00;
+      cursor: pointer;
+      box-shadow: 0 0 8px #ffaa00;
+    }
+    .value-badge {
+      background: #2a2a3a;
+      padding: 2px 10px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #ffaa00;
+    }
+    button {
+      background: #2a2a3a;
+      border: 1px solid #555;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      touch-action: manipulation;
+      transition: background 0.1s;
+    }
+    button:active { background: #3a3a5a; }
+    .toggle-btn {
+      background: #1e3a5f;
+      border-color: #2a6f9c;
+    }
+    #tooltip {
+      position: absolute;
+      background: #1e1e2e;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      color: #ddd;
+      pointer-events: none;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.1s;
+      border: 1px solid #ffaa00;
+      max-width: 220px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    .planet-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #2a2a3a;
+      padding: 4px 8px;
+      border-radius: 20px;
+      font-size: 11px;
+    }
+    .color-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    #hide-panel {
+      background: #333;
+      border: none;
+      font-size: 18px;
+      padding: 4px 12px;
+      align-self: flex-end;
+    }
+    .hidden-panel {
+      transform: translateY(calc(100% - 48px));
+    }
+    #panel-toggle {
+      position: absolute;
+      bottom: 12px;
+      right: 16px;
+      z-index: 30;
+      background: #ffaa00;
+      color: black;
+      border: none;
+      border-radius: 30px;
+      padding: 8px 16px;
+      font-weight: bold;
+      box-shadow: 0 4px 15px rgba(255,170,0,0.4);
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">🌌 Sistema Solar · Arrastra planetas · Añade nuevos</div>
+  
+  <div id="tooltip"></div>
+
+  <button id="panel-toggle">⚙️ Mostrar panel</button>
+
+  <div id="controls">
+    <div class="row" style="justify-content: space-between;">
+      <span style="font-weight:bold; color:#ffaa00;">⚙️ Controles</span>
+      <button id="hide-panel">▼</button>
+    </div>
+    
+    <div class="row">
+      <div class="slider-container">
+        <label>⏱️ Paso del tiempo <span id="timeVal" class="value-badge">1.0x</span></label>
+        <input type="range" id="timeSpeed" min="0" max="5" step="0.05" value="1">
+      </div>
+      <div class="slider-container">
+        <label>📏 Tamaño planetas <span id="sizeVal" class="value-badge">1.0x</span></label>
+        <input type="range" id="planetSize" min="0.3" max="3" step="0.1" value="1">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="slider-container">
+        <label>☀️ Tamaño Sol <span id="sunSizeVal" class="value-badge">1.0x</span></label>
+        <input type="range" id="sunSize" min="0.5" max="2.5" step="0.05" value="1">
+      </div>
+      <div class="slider-container">
+        <label>🧲 Masa solar <span id="sunMassVal" class="value-badge">1.0x</span></label>
+        <input type="range" id="sunMass" min="0.2" max="3" step="0.1" value="1">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="slider-container">
+        <label>🪐 Densidad planetas <span id="densityVal" class="value-badge">1.0x</span></label>
+        <input type="range" id="planetDensity" min="0.5" max="2.5" step="0.1" value="1">
+      </div>
+      <div class="slider-container">
+        <label>✨ Estela (segundos) <span id="trailVal" class="value-badge">3.0s</span></label>
+        <input type="range" id="trailLength" min="0.5" max="10" step="0.5" value="3">
+      </div>
+    </div>
+
+    <div class="row" style="justify-content: space-between;">
+      <div class="planet-tag"><span class="color-dot" style="background:#ffaa00;"></span> Arrastra un planeta</div>
+      <button id="addPlanetBtn">➕ Añadir planeta</button>
+      <button id="resetBtn">↺ Reiniciar</button>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { DragControls } from 'three/addons/controls/DragControls.js';
+
+    // --- CONFIGURACIÓN INICIAL ---
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x050510);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
+    camera.position.set(0, 40, 90);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // móviles: limitar pixel ratio
+    renderer.shadowMap.enabled = false; // sin sombras para rendimiento
+    document.body.appendChild(renderer.domElement);
+
+    // --- CONTROLES DE CÁMARA ---
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.autoRotate = false;
+    controls.enableZoom = true;
+    controls.zoomSpeed = 0.8;
+    controls.rotateSpeed = 0.5;
+    controls.maxDistance = 400;
+    controls.minDistance = 10;
+    controls.target.set(0, 0, 0);
+
+    // --- LUCES ---
+    // Luz ambiental suave
+    const ambientLight = new THREE.AmbientLight(0x404060);
+    scene.add(ambientLight);
+    
+    // Luz puntual desde el sol
+    const sunLight = new THREE.PointLight(0xffeedd, 1.5, 0, 0);
+    sunLight.position.set(0, 0, 0);
+    scene.add(sunLight);
+    
+    // Luz de relleno
+    const fillLight = new THREE.DirectionalLight(0x556688, 0.5);
+    fillLight.position.set(1, 1, 1);
+    scene.add(fillLight);
+
+    // Pequeña luz azulada de fondo
+    const backLight = new THREE.DirectionalLight(0x335577, 0.3);
+    backLight.position.set(-1, -0.5, -1);
+    scene.add(backLight);
+
+    // --- ESTRELLAS DE FONDO (puntos) ---
+    const starsGeometry = new THREE.BufferGeometry();
+    const starsCount = 3000;
+    const starPositions = new Float32Array(starsCount * 3);
+    for (let i = 0; i < starsCount * 3; i += 3) {
+      starPositions[i] = (Math.random() - 0.5) * 1500;
+      starPositions[i+1] = (Math.random() - 0.5) * 1500;
+      starPositions[i+2] = (Math.random() - 0.5) * 1500;
+    }
+    starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    const starsMaterial = new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, transparent: true });
+    const stars = new THREE.Points(starsGeometry, starsMaterial);
+    scene.add(stars);
+
+    // --- ESCALA Y CONSTANTES ---
+    // Las distancias son ficticias pero proporcionales para que se vean bien.
+    // Gravedad base: G * M_sol = 1 en unidades internas (ajustable con masa solar)
+    const G = 0.5; // Constante gravitacional ajustada
+    let sunMassBase = 1000; // Masa base del sol
+    
+    // --- ESTADO GLOBAL ---
+    let timeSpeed = 1.0;
+    let planetSizeMultiplier = 1.0;
+    let sunSizeMultiplier = 1.0;
+    let sunMassMultiplier = 1.0;
+    let planetDensityMultiplier = 1.0;
+    let trailLengthSeconds = 3.0;
+    
+    // Almacén de planetas
+    const planets = [];
+    const dragObjects = []; // para DragControls
+    
+    // Grupo para el sistema solar (para rotación galáctica)
+    const solarSystemGroup = new THREE.Group();
+    scene.add(solarSystemGroup);
+
+    // --- CREAR EL SOL ---
+    const sunGeometry = new THREE.SphereGeometry(4, 32, 32);
+    const sunMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xffaa33, 
+      emissive: 0xff5500, 
+      emissiveIntensity: 2,
+      roughness: 0.4
+    });
+    const sun = new THREE.Mesh(sunGeometry, sunMaterial);
+    sun.userData = { type: 'sun', mass: sunMassBase };
+    solarSystemGroup.add(sun);
+
+    // Resplandor del sol (sprite o esfera más grande transparente)
+    const glowGeometry = new THREE.SphereGeometry(4.8, 16, 16);
+    const glowMaterial = new THREE.MeshBasicMaterial({ 
+      color: 0xff8800, 
+      transparent: true, 
+      opacity: 0.2,
+      side: THREE.BackSide
+    });
+    const sunGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+    solarSystemGroup.add(sunGlow);
+
+    // --- DATOS DE PLANETAS INICIALES (simulando sistema solar) ---
+    // Colores, radios, distancias, velocidades orbitales aproximadas (no escala real)
+    const planetData = [
+      { name: 'Mercurio', color: 0xaaaaaa, radius: 0.8, distance: 8, speed: 1.6, density: 1.0 },
+      { name: 'Venus', color: 0xffcc88, radius: 1.0, distance: 12, speed: 1.2, density: 1.0 },
+      { name: 'Tierra', color: 0x2288ff, radius: 1.1, distance: 16, speed: 1.0, density: 1.0 },
+      { name: 'Marte', color: 0xff6633, radius: 0.9, distance: 20, speed: 0.8, density: 1.0 },
+      { name: 'Júpiter', color: 0xddbb99, radius: 2.2, distance: 28, speed: 0.5, density: 1.0 },
+      { name: 'Saturno', color: 0xeeddbb, radius: 1.9, distance: 36, speed: 0.4, density: 0.9, hasRing: true },
+      { name: 'Urano', color: 0x88ccff, radius: 1.6, distance: 44, speed: 0.3, density: 0.9 },
+      { name: 'Neptuno', color: 0x3366cc, radius: 1.6, distance: 52, speed: 0.25, density: 1.0 }
+    ];
+
+    // Función para crear un planeta
+    function createPlanet(config) {
+      const { name, color, radius, distance, speed, density, hasRing } = config;
+      
+      const effectiveRadius = radius * planetSizeMultiplier;
+      const mass = density * planetDensityMultiplier * effectiveRadius * effectiveRadius * effectiveRadius * 0.1; // masa ficticia proporcional
+      
+      // Malla del planeta
+      const geometry = new THREE.SphereGeometry(effectiveRadius, 24, 16);
+      const material = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6, metalness: 0.1 });
+      const planet = new THREE.Mesh(geometry, material);
+      
+      // Anillo para Saturno
+      if (hasRing) {
+        const ringGeometry = new THREE.TorusGeometry(effectiveRadius * 1.8, 0.3, 8, 40);
+        const ringMaterial = new THREE.MeshStandardMaterial({ color: 0xccbb99, side: THREE.DoubleSide, transparent: true, opacity: 0.7 });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.rotation.x = Math.PI / 2;
+        ring.rotation.z = 0.3;
+        planet.add(ring);
+      }
+      
+      // Posición inicial en órbita circular
+      const angle = Math.random() * Math.PI * 2;
+      planet.position.x = Math.cos(angle) * distance;
+      planet.position.z = Math.sin(angle) * distance;
+      
+      // Datos orbitales
+      planet.userData = {
+        type: 'planet',
+        name: name,
+        mass: mass,
+        radius: effectiveRadius,
+        baseRadius: radius,
+        distance: distance,
+        orbitalSpeed: speed,
+        color: color,
+        density: density,
+        angle: angle,
+        isDragging: false,
+        trailPoints: [], // para estela
+        trailLine: null
+      };
+      
+      // Estela (línea)
+      const trailMaterial = new THREE.LineBasicMaterial({ color: color, opacity: 0.6, transparent: true });
+      const trailGeometry = new THREE.BufferGeometry();
+      const trailLine = new THREE.Line(trailGeometry, trailMaterial);
+      planet.userData.trailLine = trailLine;
+      solarSystemGroup.add(trailLine); // añadir al grupo para que herede rotación
+      
+      return planet;
+    }
+
+    // Inicializar planetas
+    planetData.forEach(data => {
+      const planet = createPlanet(data);
+      solarSystemGroup.add(planet);
+      planets.push(planet);
+      dragObjects.push(planet);
+    });
+
+    // --- DRAG CONTROLS para arrastrar planetas ---
+    const dragControls = new DragControls(dragObjects, camera, renderer.domElement);
+    dragControls.addEventListener('dragstart', (event) => {
+      controls.enabled = false;
+      event.object.userData.isDragging = true;
+      // Resaltar
+      event.object.material.emissive?.setHex(0x444444);
+    });
+    dragControls.addEventListener('drag', (event) => {
+      // Al arrastrar, actualizamos la posición, pero la velocidad orbital se recalculará después
+      // Solo permitimos mover en el plano XZ (manteniendo Y=0)
+      event.object.position.y = 0;
+      // Actualizar ángulo según posición
+      const pos = event.object.position;
+      const angle = Math.atan2(pos.z, pos.x);
+      event.object.userData.angle = angle;
+      // La distancia también cambia
+      const dist = Math.sqrt(pos.x*pos.x + pos.z*pos.z);
+      event.object.userData.distance = dist;
+    });
+    dragControls.addEventListener('dragend', (event) => {
+      controls.enabled = true;
+      event.object.userData.isDragging = false;
+      event.object.material.emissive?.setHex(0x000000);
+    });
+
+    // --- FUNCIÓN PARA AÑADIR PLANETA ALEATORIO ---
+    function addRandomPlanet() {
+      const names = ['Nuevo', 'Kepler', 'X', 'Zeta', 'Omega', 'Nova'];
+      const colors = [0xffaa00, 0x44ff88, 0xff44aa, 0xaa44ff, 0x44aaff, 0xff8844];
+      const randomName = names[Math.floor(Math.random() * names.length)] + '-' + Math.floor(Math.random()*100);
+      const randomColor = colors[Math.floor(Math.random() * colors.length)];
+      const distance = 10 + Math.random() * 50;
+      const radius = 0.6 + Math.random() * 1.8;
+      const speed = 0.2 + Math.random() * 1.5;
+      const density = 0.8 + Math.random() * 1.5;
+      
+      const newPlanet = createPlanet({
+        name: randomName,
+        color: randomColor,
+        radius: radius,
+        distance: distance,
+        speed: speed,
+        density: density,
+        hasRing: Math.random() > 0.8
+      });
+      
+      // Posición inicial aleatoria
+      const angle = Math.random() * Math.PI * 2;
+      newPlanet.position.x = Math.cos(angle) * distance;
+      newPlanet.position.z = Math.sin(angle) * distance;
+      newPlanet.userData.angle = angle;
+      
+      solarSystemGroup.add(newPlanet);
+      planets.push(newPlanet);
+      
+      // Actualizar DragControls
+      dragObjects.push(newPlanet);
+      dragControls.dispose(); // reiniciar
+      const newDragControls = new DragControls(dragObjects, camera, renderer.domElement);
+      // Reasignar eventos (simplificado: recargamos la página es más fácil, pero aquí lo hacemos manual)
+      // En lugar de complicar, recargamos la página con los nuevos planetas? Mejor usar una solución simple:
+      // Eliminamos y recreamos los controles de arrastre.
+      // Pero para no reescribir todo, vamos a hacer una función que actualice.
+      // Como es un prototipo, usamos un enfoque práctico: deshabilitamos el antiguo y creamos uno nuevo.
+      // (Esto puede dejar eventos residuales, pero es aceptable para demo)
+      // Mejor: recargar la página no es ideal. Usaremos un array y actualizamos el DragControls.
+      // Para simplificar, creamos un nuevo DragControls después de limpiar.
+      // Esta es una solución rápida y funcional.
+      setTimeout(() => {
+        // Eliminar el control anterior (no hay remove, pero podemos desactivar eventos)
+        // En su lugar, recargamos la página es feo, pero para el ejemplo, hacemos:
+        // location.reload(); // No, mejor no recargar.
+        // Implementamos una actualización manual.
+      }, 0);
+      
+      // Truco: eliminamos y recreamos el DragControls (los eventos antiguos se quedan pero no afectan)
+      // Esta es una limitación de la librería. Para una demo es suficiente.
+      // Una mejor solución sería usar un solo DragControls y actualizar sus objetos.
+      // Pero DragControls no tiene un método setObjects. Así que recreamos.
+      // Para evitar múltiples listeners, guardamos referencia.
+      if (window.currentDragControls) {
+        window.currentDragControls.dispose();
+      }
+      window.currentDragControls = new DragControls(dragObjects, camera, renderer.domElement);
+      // Reasignar eventos (copiar los mismos)
+      window.currentDragControls.addEventListener('dragstart', (e) => {
+        controls.enabled = false;
+        e.object.userData.isDragging = true;
+        e.object.material.emissive?.setHex(0x444444);
+      });
+      window.currentDragControls.addEventListener('drag', (e) => {
+        e.object.position.y = 0;
+        const pos = e.object.position;
+        const angle = Math.atan2(pos.z, pos.x);
+        e.object.userData.angle = angle;
+        const dist = Math.sqrt(pos.x*pos.x + pos.z*pos.z);
+        e.object.userData.distance = dist;
+      });
+      window.currentDragControls.addEventListener('dragend', (e) => {
+        controls.enabled = true;
+        e.object.userData.isDragging = false;
+        e.object.material.emissive?.setHex(0x000000);
+      });
+    }
+
+    // Inicializar el primer DragControls (el de arriba)
+    // Para no duplicar, asignamos a window
+    window.currentDragControls = dragControls;
+
+    // --- FUNCIÓN DE RESET ---
+    function resetSystem() {
+      // Eliminar todos los planetas
+      planets.forEach(p => {
+        if (p.userData.trailLine) {
+          solarSystemGroup.remove(p.userData.trailLine);
+          p.userData.trailLine.geometry.dispose();
+          p.userData.trailLine.material.dispose();
+        }
+        solarSystemGroup.remove(p);
+        p.geometry.dispose();
+        p.material.dispose();
+      });
+      planets.length = 0;
+      dragObjects.length = 0;
+      
+      // Recrear planetas originales
+      planetData.forEach(data => {
+        const planet = createPlanet(data);
+        solarSystemGroup.add(planet);
+        planets.push(planet);
+        dragObjects.push(planet);
+      });
+      
+      // Recrear DragControls
+      if (window.currentDragControls) window.currentDragControls.dispose();
+      window.currentDragControls = new DragControls(dragObjects, camera, renderer.domElement);
+      window.currentDragControls.addEventListener('dragstart', (e) => {
+        controls.enabled = false;
+        e.object.userData.isDragging = true;
+        e.object.material.emissive?.setHex(0x444444);
+      });
+      window.currentDragControls.addEventListener('drag', (e) => {
+        e.object.position.y = 0;
+        const pos = e.object.position;
+        const angle = Math.atan2(pos.z, pos.x);
+        e.object.userData.angle = angle;
+        const dist = Math.sqrt(pos.x*pos.x + pos.z*pos.z);
+        e.object.userData.distance = dist;
+      });
+      window.currentDragControls.addEventListener('dragend', (e) => {
+        controls.enabled = true;
+        e.object.userData.isDragging = false;
+        e.object.material.emissive?.setHex(0x000000);
+      });
+    }
+
+    // --- ACTUALIZAR PARÁMETROS DE UI ---
+    document.getElementById('timeSpeed').addEventListener('input', (e) => {
+      timeSpeed = parseFloat(e.target.value);
+      document.getElementById('timeVal').textContent = timeSpeed.toFixed(2) + 'x';
+    });
+    document.getElementById('planetSize').addEventListener('input', (e) => {
+      planetSizeMultiplier = parseFloat(e.target.value);
+      document.getElementById('sizeVal').textContent = planetSizeMultiplier.toFixed(1) + 'x';
+      // Actualizar tamaño de planetas existentes
+      planets.forEach(p => {
+        const newRadius = p.userData.baseRadius * planetSizeMultiplier;
+        p.scale.set(newRadius / p.userData.radius, newRadius / p.userData.radius, newRadius / p.userData.radius);
+        p.userData.radius = newRadius;
+        // La masa también cambia (densidad * volumen)
+        p.userData.mass = p.userData.density * planetDensityMultiplier * newRadius * newRadius * newRadius * 0.1;
+      });
+    });
+    document.getElementById('sunSize').addEventListener('input', (e) => {
+      sunSizeMultiplier = parseFloat(e.target.value);
+      document.getElementById('sunSizeVal').textContent = sunSizeMultiplier.toFixed(2) + 'x';
+      sun.scale.set(sunSizeMultiplier, sunSizeMultiplier, sunSizeMultiplier);
+      sunGlow.scale.set(sunSizeMultiplier, sunSizeMultiplier, sunSizeMultiplier);
+    });
+    document.getElementById('sunMass').addEventListener('input', (e) => {
+      sunMassMultiplier = parseFloat(e.target.value);
+      document.getElementById('sunMassVal').textContent = sunMassMultiplier.toFixed(1) + 'x';
+      sun.userData.mass = sunMassBase * sunMassMultiplier;
+    });
+    document.getElementById('planetDensity').addEventListener('input', (e) => {
+      planetDensityMultiplier = parseFloat(e.target.value);
+      document.getElementById('densityVal').textContent = planetDensityMultiplier.toFixed(1) + 'x';
+      planets.forEach(p => {
+        p.userData.density = planetDensityMultiplier; // simplificado, pero mantenemos base
+        p.userData.mass = p.userData.density * planetDensityMultiplier * p.userData.radius * p.userData.radius * p.userData.radius * 0.1;
+      });
+    });
+    document.getElementById('trailLength').addEventListener('input', (e) => {
+      trailLengthSeconds = parseFloat(e.target.value);
+      document.getElementById('trailVal').textContent = trailLengthSeconds.toFixed(1) + 's';
+    });
+
+    document.getElementById('addPlanetBtn').addEventListener('click', addRandomPlanet);
+    document.getElementById('resetBtn').addEventListener('click', resetSystem);
+
+    // Ocultar/mostrar panel
+    const controlsDiv = document.getElementById('controls');
+    const panelToggle = document.getElementById('panel-toggle');
+    document.getElementById('hide-panel').addEventListener('click', () => {
+      controlsDiv.classList.add('hidden-panel');
+      panelToggle.style.display = 'block';
+    });
+    panelToggle.addEventListener('click', () => {
+      controlsDiv.classList.remove('hidden-panel');
+      panelToggle.style.display = 'none';
+    });
+
+    // Tooltips explicativos (simulados con title, pero haremos un tooltip personalizado)
+    const tooltip = document.getElementById('tooltip');
+    const sliders = document.querySelectorAll('input[type=range]');
+    const explanations = {
+      timeSpeed: "Velocidad del tiempo. 1x = tiempo real simulado.",
+      planetSize: "Escala visual del tamaño de los planetas.",
+      sunSize: "Escala visual del Sol (no afecta gravedad).",
+      sunMass: "Masa del Sol. Afecta la fuerza gravitatoria.",
+      planetDensity: "Densidad media de los planetas. Afecta su masa.",
+      trailLength: "Duración de la estela orbital en segundos."
+    };
+    sliders.forEach(slider => {
+      slider.addEventListener('mouseenter', (e) => {
+        const id = e.target.id;
+        if (explanations[id]) {
+          tooltip.textContent = explanations[id];
+          tooltip.style.opacity = '1';
+          const rect = e.target.getBoundingClientRect();
+          tooltip.style.left = (rect.left + rect.width/2 - 100) + 'px';
+          tooltip.style.top = (rect.top - 40) + 'px';
+        }
+      });
+      slider.addEventListener('mouseleave', () => {
+        tooltip.style.opacity = '0';
+      });
+      // Para móvil, al tocar
+      slider.addEventListener('touchstart', (e) => {
+        const id = e.target.id;
+        if (explanations[id]) {
+          tooltip.textContent = explanations[id];
+          tooltip.style.opacity = '1';
+          const rect = e.target.getBoundingClientRect();
+          tooltip.style.left = (rect.left + rect.width/2 - 100) + 'px';
+          tooltip.style.top = (rect.top - 40) + 'px';
+          setTimeout(() => { tooltip.style.opacity = '0'; }, 2000);
+        }
+      });
+    });
+
+    // --- BUCLE DE ANIMACIÓN ---
+    let lastTime = performance.now() / 1000;
+    
+    function animate() {
+      const currentTime = performance.now() / 1000;
+      let deltaTime = Math.min(currentTime - lastTime, 0.1); // limitar delta para evitar saltos
+      lastTime = currentTime;
+      
+      // Aplicar velocidad del tiempo
+      const dt = deltaTime * timeSpeed;
+      
+      // Rotación galáctica suave (todo el sistema solar rota lentamente alrededor del centro galáctico)
+      // Simulamos movimiento alrededor de la galaxia rotando el grupo completo muy lentamente
+      solarSystemGroup.rotation.y += 0.001 * dt; // rotación lenta
+      
+      // Actualizar planetas (físicas simplificadas: órbitas elípticas perturbadas por arrastre)
+      // Usamos un modelo de fuerza gravitatoria simple para actualizar velocidades y posiciones.
+      // Pero para mantener estabilidad y rendimiento, usamos un método semi-implícito con corrección.
+      
+      // Constante gravitacional efectiva
+      const G_eff = G * sunMassMultiplier * 8; // ajuste para que las órbitas se vean bien
+      
+      planets.forEach(planet => {
+        if (planet.userData.isDragging) return; // no actualizar si se está arrastrando
+        
+        const pos = planet.position;
+        const r = Math.sqrt(pos.x*pos.x + pos.z*pos.z);
+        
+        // Evitar división por cero
+        if (r < 0.5) return;
+        
+        // Aceleración gravitatoria hacia el sol (centro en 0,0)
+        const accelMagnitude = G_eff * sun.userData.mass / (r * r);
+        
+        // Dirección hacia el centro
+        const dirX = -pos.x / r;
+        const dirZ = -pos.z / r;
+        
+        // Actualizar velocidad (usamos userData.velocity si existe, sino derivamos de orbitalSpeed)
+        if (!planet.userData.velocity) {
+          // Inicializar velocidad perpendicular para órbita circular
+          const vMag = Math.sqrt(G_eff * sun.userData.mass / r);
+          // Perpendicular en 2D (x,z)
+          planet.userData.velocity = new THREE.Vector3(-dirZ * vMag, 0, dirX * vMag);
+        }
+        
+        // Integración de Euler (simple y rápida)
+        const v = planet.userData.velocity;
+        v.x += dirX * accelMagnitude * dt;
+        v.z += dirZ * accelMagnitude * dt;
+        
+        // Actualizar posición
+        pos.x += v.x * dt;
+        pos.z += v.z * dt;
+        
+        // Actualizar ángulo y distancia para consistencia
+        planet.userData.angle = Math.atan2(pos.z, pos.x);
+        planet.userData.distance = Math.sqrt(pos.x*pos.x + pos.z*pos.z);
+      });
+      
+      // Actualizar estelas
+      planets.forEach(planet => {
+        if (!planet.userData.trailLine) return;
+        
+        // Añadir punto actual a la estela
+        const trail = planet.userData.trailPoints;
+        const currentPos = planet.position.clone();
+        
+        // Solo añadir si ha cambiado lo suficiente (para no saturar)
+        if (trail.length === 0 || trail[trail.length-1].distanceTo(currentPos) > 0.2) {
+          trail.push(currentPos);
+        }
+        
+        // Eliminar puntos antiguos según trailLengthSeconds
+        const maxPoints = Math.max(10, Math.floor(trailLengthSeconds * 30)); // ~30 fps asumido
+        while (trail.length > maxPoints) {
+          trail.shift();
+        }
+        
+        // Actualizar geometría de la línea
+        const points = trail.map(p => p.clone());
+        // Añadir el punto actual al final para que la línea llegue hasta el planeta
+        points.push(planet.position.clone());
+        
+        if (points.length >= 2) {
+          const positions = new Float32Array(points.length * 3);
+          points.forEach((p, i) => {
+            positions[i*3] = p.x;
+            positions[i*3+1] = p.y;
+            positions[i*3+2] = p.z;
+          });
+          planet.userData.trailLine.geometry.dispose();
+          planet.userData.trailLine.geometry = new THREE.BufferGeometry();
+          planet.userData.trailLine.geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        }
+      });
+      
+      // Rotación del sol
+      sun.rotation.y += 0.002 * dt;
+      
+      // Actualizar controles de cámara
+      controls.update();
+      
+      // Renderizar
+      renderer.render(scene, camera);
+      
+      requestAnimationFrame(animate);
+    }
+
+    animate();
+
+    // --- RESPONSIVE ---
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Pequeño ajuste para móviles: panel inicial semioculto?
+    if (window.innerWidth < 600) {
+      // En móviles, el panel puede ocupar mucho, lo dejamos visible pero colapsable
+      // Podemos iniciar colapsado para ver el espacio
+      controlsDiv.classList.add('hidden-panel');
+      panelToggle.style.display = 'block';
+    }
+
+    console.log('Sistema Solar listo. Arrastra los planetas, añade nuevos y ajusta parámetros.');
+  </script>
+</body>
+  </html>
